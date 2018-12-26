@@ -3,17 +3,18 @@ const router = express.Router();
 const gravtar = require("gravatar");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const passport = require("passport");
+const keys = require("../../config/keys");
 
 // Load User model
 const User = require("../../models/User");
-const keys = require("../../config/keys");
 
 router.get("/test", (req, res) => {
   res.json({ mes: "users works" });
 });
 
 /**
- * @route GET api/users/register
+ * @route POST api/users/register
  * @description register
  * @access public
  */
@@ -51,7 +52,7 @@ router.post("/register", (req, res) => {
 });
 
 /**
- * @route /api/users/login
+ * @route POST /api/users/login
  * @description login
  * @access public
  */
@@ -74,10 +75,9 @@ router.post("/login", (req, res) => {
           keys.secretOrKey,
           { expiresIn: 3600 },
           (err, token) => {
-            console.log(keys.secretOrKey);
             res.json({
               success: true,
-              token: "bearer " + token
+              token: "Bearer " + token
             });
           }
         );
@@ -85,5 +85,24 @@ router.post("/login", (req, res) => {
     });
   });
 });
+
+/**
+ * @route GET api/users/current
+ * @description current
+ * @access private
+ */
+
+router.get(
+  "/current",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    console.log(req);
+    res.json({
+      id: req.user.id,
+      name: req.user.name,
+      email: req.user.email
+    });
+  }
+);
 
 module.exports = router;
