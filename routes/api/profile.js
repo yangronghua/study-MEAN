@@ -23,7 +23,7 @@ router.get(
       .then(profile => {
         if (!profile) {
           errors.noprofile = "There is no profile for this user";
-          return res.status(404).json(errors);
+          res.status(404).json(errors);
         }
         res.json(profile);
       })
@@ -32,11 +32,71 @@ router.get(
 );
 
 /**
- * @route GET api/profile/handle/:handle_id
- * @description get profile
- * @access ppublic
+ * @route GET api/profile/all
+ * @description get all profile
+ * @access public
  */
-router.get("/handle", (req, res) => {});
+router.get("/all", (req, res) => {
+  const errors = {};
+  Profile.find()
+    .populate("user", ["name", "avatar"])
+    .then(profile => {
+      if (!profile) {
+        errors.noprofile = "There are no profile";
+        res.status(404).json(errors);
+      } else {
+        res.json(profile);
+      }
+    })
+    .catch(err => {
+      res.status(404).json(err);
+    });
+});
+
+/**
+ * @route GET api/profile/user/:user_id
+ * @description get profile by user
+ * @access public
+ */
+router.get("/user/:user_id", (req, res) => {
+  const errors = {};
+
+  Profile.findOne({ user: req.params.user_id })
+    .populate("user", ["name", "avatar"])
+    .then(profile => {
+      if (!profile) {
+        errors.noprofile = "There is no profile for this user";
+        res.status(404).json(errors);
+      } else {
+        res.json(profile);
+      }
+    })
+    .catch(err => {
+      res.status(404).json(errors);
+    });
+});
+
+/**
+ * @route GET api/profile/handle/:handle_id
+ * @description get profile by handle
+ * @access public
+ */
+router.get("/handle/:handle_id", (req, res) => {
+  Profile.findOne({ handle: req.params.handle_id })
+    .populate("user", ["name", "avatar"])
+    .then(profile => {
+      const errors = {};
+      if (!profile) {
+        errors.noprofile = "There is no profile for this handle";
+        res.status(404).json(errors);
+      } else {
+        res.json(profile);
+      }
+    })
+    .catch(err => {
+      res.status(404).json(err);
+    });
+});
 
 /**
  * @route POST api/profile
@@ -47,10 +107,10 @@ router.post(
   "/",
   passport.authenticate("jwt", { session: false }),
   (req, res) => {
-    const { error, isValid } = profileInputValidation(req.body);
+    const { errors, isValid } = profileInputValidation(req.body);
     //check validation
     if (!isValid) {
-      return res.status(400).json(errors);
+      res.status(400).json(errors);
     }
 
     //get fileds
@@ -100,6 +160,123 @@ router.post(
         });
       }
     });
+  }
+);
+
+//experience
+/**
+ * @route POST /api/profile/experience
+ * @description create or update experience
+ * @access private
+ */
+router.post(
+  "/experience",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    //validate input
+    const errors = {};
+    Profile.findOne({ user: req.user._id })
+      .then(profile => {
+        const newExp = {
+          title: req.body.title,
+          company: req.body.company,
+          location: req.body.location,
+          from: req.body.from,
+          to: req.body.to,
+          current: req.body.current,
+          description: req.body.description
+        };
+        // Add to exp array
+        profile.experience.unshift(newExp);
+        profile.save().then(profile => res.json(profile));
+      })
+      .catch(err => {
+        res.status(400).json(err);
+      });
+  }
+);
+
+/**
+ * @route DELETE /api/profile/experience/exp_id
+ * @description delete experience
+ * @access private
+ */
+router.delete(
+  "/experience/:exp_id",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    const errors = {};
+
+    Profile.findOne({ user: req.user.id }) //experience 存在profile文件中，没有单独存储一个文件
+      .then(profile => {
+        const removeIndex = profile.experience
+          .map(item => item.id)
+          .indexOf(req.params.exp_id);
+        console.log(removeIndex);
+        //删除移除数据后存储
+        profile.experience.splice(removeIndex, 1);
+        profile.save().then(profile => res.json(profile));
+      })
+      .catch(err => {
+        res.status(400).json(err);
+      });
+  }
+);
+
+//education
+/**
+ * @route POST /api/profile/education
+ * @description create or update education
+ * @access private
+ */
+router.post(
+  "/education",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    const errors = {};
+    //TODO  Check Validation
+    Profile.findOne({ user: req.user.id }).then(profile => {
+      const newEdu = {
+        school: req.body.school,
+        degree: req.body.degree,
+        fieldofstudy: req.body.fieldofstudy,
+        from: req.body.from,
+        to: req.body.to,
+        current: req.body.current,
+        description: req.body.description
+      };
+
+      // Add to edu array
+      profile.education.unshift(newEdu);
+
+      profile.save().then(profile => res.json(profile));
+    });
+  }
+);
+
+/**
+ * @route DELETE /api/profile/education/edu_id
+ * @description delete education
+ * @access private
+ */
+router.delete(
+  "/education/edu_id",
+  passport.authenticate("jwt", { session: false }),
+  (req, res) => {
+    Profile.findOne({ user: req.user.id })
+      .then(profile => {
+        // Get remove index
+        const removeIndex = profile.education
+          .map(item => item.id)
+          .indexOf(req.params.edu_id);
+
+        // Splice out of array
+        profile.education.splice(removeIndex, 1);
+
+        // Save
+        profile.save().then(profile => res.json(profile));
+      })
+      .catch(err => res.status(404).json(err));
   }
 );
 
